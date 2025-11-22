@@ -4,14 +4,15 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+djangorestframework-simplejwt = "*"
+tzdata = "*"
 django = "*"
 pillow = "*"
 psycopg2 = "*"
-djangorestframework = "*"
 django-cors-headers = "*"
-djangorestframework-simplejwt = "*"
+djangorestframework = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3.14"
+python_version = "3.13"

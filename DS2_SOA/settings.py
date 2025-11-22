@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "rest_framework_simplejwt",
-    "crop_app.apps.CropAppConfig",
+    "crop_app",
 ]
 
 MIDDLEWARE = [
