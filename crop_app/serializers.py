@@ -44,7 +44,7 @@ class AgentRecommendationSerializer(serializers.ModelSerializer):
     class Meta:
         model = AgentRecommendation
         fields = ['id', 'timestamp', 'anomaly_event', 'recommended_action',
-                  'explanation_text', 'confidence']
+                'explanation_text', 'confidence']
         read_only_fields = ['timestamp']
 
 
