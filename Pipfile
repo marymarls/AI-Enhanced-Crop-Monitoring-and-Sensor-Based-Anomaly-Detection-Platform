@@ -10,8 +10,10 @@ psycopg2 = "*"
 djangorestframework = "*"
 django-cors-headers = "*"
 djangorestframework-simplejwt = "*"
+psycopg2-binary = "*"
+python-decouple = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3.14"
+python_version = "3.13"
