@@ -1,7 +1,9 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, BasePermission
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from .models import FarmProfile, FieldPlot, SensorReading, AnomalyEvent, AgentRecommendation
 from .serializers import (
     FarmProfileSerializer,
@@ -11,44 +13,6 @@ from .serializers import (
     AgentRecommendationSerializer
 )
 
-class IsFarmerOrAdmin(BasePermission):
-    """
-    Custom permission to only allow:
-    - Admins: Full access to everything
-    - Farmers: Access only to their own farms/plots/data
-    """
-    
-    def has_permission(self, request, view):
-        # User must be authenticated
-        return request.user and request.user.is_authenticated
-    
-    def has_object_permission(self, request, view, obj):
-        # Admins can do anything
-        if request.user.is_staff:
-            return True
-        
-        # For FarmProfile: check if user is the owner
-        if isinstance(obj, FarmProfile):
-            return obj.owner == request.user
-        
-        # For FieldPlot: check if user owns the farm
-        if isinstance(obj, FieldPlot):
-            return obj.farm.owner == request.user
-        
-        # For SensorReading: check through plot -> farm -> owner
-        if isinstance(obj, SensorReading):
-            return obj.plot.farm.owner == request.user
-        
-        # For AnomalyEvent: check through plot -> farm -> owner
-        if isinstance(obj, AnomalyEvent):
-            return obj.plot.farm.owner == request.user
-        
-        # For AgentRecommendation: check through anomaly -> plot -> farm -> owner
-        if isinstance(obj, AgentRecommendation):
-            return obj.anomaly_event.plot.farm.owner == request.user
-        
-        return False
-
 
 class FarmProfileViewSet(viewsets.ModelViewSet):
     queryset = FarmProfile.objects.all()
@@ -56,7 +20,6 @@ class FarmProfileViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-    
         queryset = super().get_queryset()
         user = self.request.user
         
@@ -68,7 +31,7 @@ class FarmProfileViewSet(viewsets.ModelViewSet):
         owner_name = self.request.query_params.get('owner', None)
         location = self.request.query_params.get('location', None)
 
-        if owner_name and user.is_staff:  # Only admins can filter by other owners
+        if owner_name and user.is_staff:
             queryset = queryset.filter(owner__username__icontains=owner_name)
         if location:
             queryset = queryset.filter(location__icontains=location)
@@ -97,18 +60,15 @@ class FieldPlotViewSet(viewsets.ModelViewSet):
         return queryset
 
 
+# CSRF exempt for sensor data ingestion (IoT simulator doesn't have CSRF tokens)
+@method_decorator(csrf_exempt, name='dispatch')
 class SensorReadingViewSet(viewsets.ModelViewSet):
     queryset = SensorReading.objects.select_related('plot').all()
     serializer_class = SensorReadingSerializer
-    permission_classes = [IsAuthenticated]
-
+    permission_classes = [AllowAny]  # No authentication for sensor ingestion
+    
     def get_queryset(self):
         queryset = super().get_queryset()
-        user = self.request.user
-        
-        # If not admin, show only user's sensor readings
-        if not user.is_staff:
-            queryset = queryset.filter(plot__farm__owner=user)
         
         # Apply optional filters
         plot_id = self.request.query_params.get('plot', None)
@@ -119,15 +79,27 @@ class SensorReadingViewSet(viewsets.ModelViewSet):
         if sensor_type:
             queryset = queryset.filter(sensor_type=sensor_type)
 
-        # Limit to recent readings for performance (last 1000)
-        return queryset[:1000]
+        # Order by timestamp and limit
+        return queryset.order_by('-timestamp')[:1000]
 
     def create(self, request, *args, **kwargs):
+        """Ingest sensor data with validation"""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
+        
+        # Get the created sensor reading instance
+        sensor_reading = serializer.instance
+        
+        # TODO: Trigger ML anomaly detection here (Week 2)
+        # This will be implemented when you build your ML module
+        
         headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        return Response(
+            serializer.data, 
+            status=status.HTTP_201_CREATED, 
+            headers=headers
+        )
 
 
 class AnomalyEventViewSet(viewsets.ModelViewSet):
@@ -155,7 +127,7 @@ class AnomalyEventViewSet(viewsets.ModelViewSet):
         if anomaly_type:
             queryset = queryset.filter(anomaly_type__icontains=anomaly_type)
 
-        return queryset[:100]  # Limit results
+        return queryset[:100]
 
 
 class AgentRecommendationViewSet(viewsets.ModelViewSet):

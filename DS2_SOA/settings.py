@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "corsheaders",
     "crop_app",
+    "ml_module",
 ]
 
 MIDDLEWARE = [

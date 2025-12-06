@@ -18,12 +18,26 @@ class FieldPlotSerializer(serializers.ModelSerializer):
 
 class SensorReadingSerializer(serializers.ModelSerializer):
     plot_id = serializers.IntegerField(write_only=True)
-
+    
     class Meta:
         model = SensorReading
-        fields = ['id', 'timestamp', 'plot', 'plot_id', 'sensor_type', 'value', 'source']
-        read_only_fields = ['timestamp']
+        fields = ['id', 'timestamp', 'plot_id', 'sensor_type', 'value', 'source']
+        read_only_fields = ['id', 'timestamp']
 
+    def create(self, validated_data):
+        """Create sensor reading with plot_id"""
+        plot_id = validated_data.pop('plot_id')
+        
+        # Get the plot instance
+        try:
+            plot = FieldPlot.objects.get(id=plot_id)
+        except FieldPlot.DoesNotExist:
+            raise serializers.ValidationError(f"Plot with id {plot_id} does not exist")
+        
+        # Create the sensor reading with the plot instance
+        validated_data['plot'] = plot
+        return super().create(validated_data)
+    
     def validate_sensor_type(self, value):
         """Validate sensor type is valid"""
         valid_types = ['moisture', 'temperature', 'humidity']
@@ -36,11 +50,16 @@ class SensorReadingSerializer(serializers.ModelSerializer):
         if value < 0 or value > 200:
             raise serializers.ValidationError("Sensor value out of reasonable range (0-200)")
         return value
+    
+    def validate_timestamp(self, value):
+        """Validate timestamp format and not in future"""
+        from django.utils import timezone
+        if value and value > timezone.now():
+            raise serializers.ValidationError("Timestamp cannot be in the future")
+        return value
 
 
 class AgentRecommendationSerializer(serializers.ModelSerializer):
-    # No need for anomaly_info here since it's 1-to-1
-
     class Meta:
         model = AgentRecommendation
         fields = ['id', 'timestamp', 'anomaly_event', 'recommended_action',
@@ -50,11 +69,10 @@ class AgentRecommendationSerializer(serializers.ModelSerializer):
 
 class AnomalyEventSerializer(serializers.ModelSerializer):
     plot_info = FieldPlotSerializer(source='plot', read_only=True)
-    # Changed: Now 'recommendation' is singular (OneToOne relationship)
     recommendation = AgentRecommendationSerializer(read_only=True)
 
     class Meta:
         model = AnomalyEvent
         fields = ['id', 'timestamp', 'plot', 'plot_info', 'anomaly_type', 'severity',
-                  'model_confidence', 'recommendation']  # Added recommendation field
+                  'model_confidence', 'recommendation']
         read_only_fields = ['timestamp']

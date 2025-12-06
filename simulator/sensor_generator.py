@@ -110,7 +110,7 @@ class SensorSimulator:
             timestamp = datetime.now().isoformat()
         
         data = {
-            'plot': plot_id,
+            'plot_id': plot_id,
             'sensor_type': sensor_type,
             'value': round(value, 2),
             'timestamp': timestamp,
