@@ -278,6 +278,8 @@ def test_connection():
         return False
 
 
+# At the END of sensor_generator.py
+
 if __name__ == "__main__":
     print("\n" + "="*70)
     print("SENSOR SIMULATOR - Manual Test")
@@ -293,9 +295,3 @@ if __name__ == "__main__":
     # Run a quick test
     print("\nRunning quick test: 6 hours of normal data for plot 1...\n")
     simulator.simulate_normal_day(plot_id=1, duration_hours=6, interval_minutes=30)
-    
-    print("\n" + "="*70)
-    print("QUICK TEST COMPLETE!")
-    print("="*70)
-    print("\nTo generate full training data, run: python scripts/train_model.py")
-    print("To test anomaly detection, run: python scripts/test_anomalies.py")
